@@ -6,7 +6,7 @@ const Navbar = ()=>{
         <u1>
             <li className="nav-item"> Home </li>
             <li className="nav-item"> Technology Route Services INC. - TRS  </li>
-            <li className="nav-item"> Cloud Deployments  </li>
+            <li className="nav-item"> AWS Cloud Deployments  </li>
             </u1>
             </nav>
 
