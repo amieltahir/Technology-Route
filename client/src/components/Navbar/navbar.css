@@ -1,6 +1,31 @@
 .navbar-main{
 
-background-color: #cd5c5f;
+background-color: black;
 width: 100%;
+height: 70px;
+display: flex;
+align-items: center;
+top: 0;
+text-align: center;
+justify-content: right;
+}
+
+.navbar-main u1{ 
+    display: flex;
+    margin-right: 10%;
+}
+
+.navbar-main u1 li{
+    list-style-type: none;
+    margin-right: 20px;
+    color: green;
+    cursor: pointer;
+    padding-top: 7px;
+    font-family: 'comic sans';
+    
+}
+
+.navbar-main u1 li:hover{
+    color: yellow;
 
 }

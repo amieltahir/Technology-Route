@@ -1,3 +1,4 @@
+// eslint-disable-next-line
 import react from "react";
 import "./navbar.css";
 const Navbar = ()=>{
@@ -5,8 +6,14 @@ const Navbar = ()=>{
     <nav className="navbar-main">
         <u1>
             <li className="nav-item"> Home </li>
-            <li className="nav-item"> Technology Route Services INC. - TRS  </li>
-            <li className="nav-item"> AWS Cloud Deployments  </li>
+            <li className="nav-item"> About  </li>
+            <li className="nav-item"> Service </li>
+            <li className="nav-item"> Career </li>
+            <li className="nav-item"> Video </li>
+            <li className="nav-item"> Team </li>
+            <li className="nav-item"> Testimonial </li>
+            <li className="nav-item"> Contact </li>
+            <li className="nav-item"> Subscription </li>
             </u1>
             </nav>
 
