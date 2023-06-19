@@ -1,0 +1,3 @@
+distribute keys
+
+{ while read LINE; do echo "sshpass -f pass ssh-copy-id dfm6127@$LINE" >> ssh-pass-commands.sh; done < hosts.GTD.PREPROD ; }
