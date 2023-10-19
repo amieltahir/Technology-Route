@@ -1,0 +1,21 @@
+useradd student
+
+
+1. useradd -G wheel ansible
+2. sudo dnf install ansible-core git
+3. vim inventory --> prod, dev, certif
+4. add user ansible to remote hosts
+5. make sure to ssh to each host to add host_key
+6. ansible -i inventory all -u admin -k -b -K -m command -a "useradd ansible"
+7. ansible -i inventory all -u admin -k -b -K -m user -a "name=ansible state=present"
+8. ansible -i inventory all -u admin -k -b -K -m shell -a "echo password | passwd --stdin ansible"
+9. ansible -i inventory all -u student -k -b -K -m copy -a 'content="ansible ALL=(ALL) NOPASSWD: ALL" dest=/etc/sudoers.d/ansible'
+10. ansible -i inventory all -u ansible -k -b -m command -a " ls -ltr /root"
+11. git clone https://github.com/sandervanvugt/ansiblein3weeks.git
+12. ssh-keygen
+     ssh-copy-id prod
+     ssh-copy-id dev
+     ssh-copy-id certif
+13.  ansible all -a "ls -ltr /root"
+14.  ansible-doc -l | less
+15.
