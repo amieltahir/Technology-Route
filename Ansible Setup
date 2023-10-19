@@ -105,4 +105,27 @@ become_ask_pass = False
       debug:
         msg: opening firewall in ports
 
-17. 
+17. install firewalld collection
+
+ansible-galaxy collection install ansible.posix
+
+18. [ansible@prod ~]$ cat vsftpd.yaml
+- name: run vsftpd
+  hosts: all
+  tasks:
+
+    - name: install vsftpd
+      dnf:
+        name: vsftpd
+    - name: start and enable vsftpd
+      service:
+        name: vsftpd
+        state: started
+        enabled: yes
+    - name: open firewall ports
+      firewalld:
+        service: ftp
+        immediate: yes
+        permanent: yes
+        state: enabled
+
