@@ -129,3 +129,94 @@ ansible-galaxy collection install ansible.posix
         permanent: yes
         state: enabled
 
+19.
+
+---
+- name: create a user using a variable
+  hosts: all
+  vars:
+    user: lisa
+  tasks:
+    - name: create a user {{ user }} on host {{ ansible_hostname }}
+      user:
+        name: "{{ user }}"
+
+20.
+
+---
+- name: show fact gathering
+  hosts: all
+  tasks:
+  - name: show all facts
+    debug:
+      var: ansible_facts
+
+---
+- name: show fact gathering
+  hosts: all
+  gather_facts:no
+
+  tasks:
+  - name: gather facts
+    setup:
+  - name: show all facts
+    debug:
+      var: ansible_facts
+
+---
+- hosts: all
+  tasks:
+  - name: show IP address
+    debug:
+      msg: >
+        This host uses IP address {{ ansible_facts['default_ipv4']['address'] }}
+  - name: show IP adress - new and deprecated
+    debug:
+      msg: This host uses IP address {{ ansible_facts.default_ipv4.address }}
+  - name: again - old notation one
+    debug:
+      msg: This host uses {{ ansible_default_ipv4['address'] }}
+  - name: again - old an soooo deprecated
+    debug:
+      msg: This host uses {{ ansible_default_ipv4.address }}
+
+21.
+
+[ansible@prod ~]$ cat myvars.yaml
+mypackage: nmap
+myftpservice: vsftpd
+myfileservice: smb
+
+[ansible@prod ~]$ cat vars_file.yaml
+---
+- name: using a variable include file
+  hosts: rhfamily
+  vars_files: myvars.yaml
+  tasks:
+  - name: install package {{ package }}
+    yum:
+      name: "{{ mypackage }}"
+      state: latest
+
+22.
+install web server and service for centos & ubuntu using group vars
+
+---
+- name: install start and enable httpd
+  hosts: all
+  tasks:
+  - name: install package {{ package }}
+    package:
+      name: {{ package }}
+      state: latest
+  - name: start and enable service {{ service}
+    service:
+      name: {{ package }}
+      state: started
+      enabled: yes
+
+
+ vim group_vars/rhfamily.yaml
+ vim group_vars/ubuntu.yaml 
+
+
