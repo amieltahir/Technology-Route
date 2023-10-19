@@ -1,3 +1,6 @@
 distribute keys
 
 { while read LINE; do echo "sshpass -f pass ssh-copy-id dfm6127@$LINE" >> ssh-pass-commands.sh; done < hosts.GTD.PREPROD ; }
+
+
+https://medium.com/@yusufkaratoprak/ansicix-a-cli-tool-for-kubernetes-health-checks-4c815d185a33
