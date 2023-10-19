@@ -219,4 +219,16 @@ install web server and service for centos & ubuntu using group vars
  vim group_vars/rhfamily.yaml
  vim group_vars/ubuntu.yaml 
 
+23.
+
+[ansible@prod ~]$ cat register.yaml
+---
+- name: test register
+  hosts: all
+  tasks:
+  - shell: cat /etc/passwd
+    register: passwd_contents
+  - debug:
+      var: "passwd_contents"  or "passwd_contents.stdout" or passwd_contents.stdout_lines 
+
 
