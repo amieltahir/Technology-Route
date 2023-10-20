@@ -232,3 +232,20 @@ install web server and service for centos & ubuntu using group vars
       var: "passwd_contents"  or "passwd_contents.stdout" or passwd_contents.stdout_lines 
 
 
+24.
+
+ ansible-vault create secret.yml
+ ansible-playbook create-user.yml
+ ansible-playbook --ask-vault-pass create-user.yml
+
+[ansible@prod ~]$ cat create-user.yml
+---
+- name: create a user
+  hosts: all
+  vars_files:
+    - secret.yml
+  tasks:
+    - name: creating user
+      user:
+        name: "{{ username }}"
+        password: "{{ pwhash }}"
