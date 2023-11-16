@@ -65,3 +65,9 @@ https://developers.redhat.com/articles/2023/05/08/how-create-execution-environme
 https://thedatabaseme.de/2022/09/09/self-build-awx-execution-environment/
 
 https://computingforgeeks.com/how-to-install-ansible-awx-on-ubuntu-linux/
+
+-----
+
+
+kubectl exec -it awx-task-6fb4657b67-ptfn4 -n awx -c awx-ee -- /bin/bash -c "ansible-galaxy collection list"
+kubectl exec -it awx-task-6fb4657b67-ptfn4 -n awx -c awx-ee -- /bin/bash -c "ansible-galaxy collection install community.aws"
