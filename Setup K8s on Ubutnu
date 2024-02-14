@@ -1,0 +1,9 @@
+
+https://www.youtube.com/watch?v=KOIIgJFuSFY
+https://medium.com/@alexandru.raul/building-an-efficient-ansible-development-pipeline-using-jenkins-8830a0a19de0
+https://digitalvarys.com/install-kubernetes-cluster-with-kubeadm-and-ansible-ubuntu/
+https://garutilorenzo.github.io/ansible-role-kubernetes-cluster/
+
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
