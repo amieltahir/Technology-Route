@@ -1,0 +1,43 @@
+---
+- name: Collect and format system and audit logs from EC2 instances
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - secrets.yml
+  become: yes
+  vars:
+    log_files:
+      - "/var/log/lastlog"
+      - "/var/log/messages"
+      - "/var/log/cron"
+    output_directory: "/tmp/logs_csv"
+    formatted_log_file: "/tmp/system_and_audit_logs.csv"
+    ansible_python_interpreter: "/usr/bin/python3"
+
+  tasks:
+    - name: Ensure output directory exists on local system
+      file:
+        path: "{{ output_directory }}"
+        state: directory
+        mode: '0755'
+
+    - name: Fetch logs from EC2 instances
+      fetch:
+        src: "{{ item }}"
+        dest: "{{ output_directory }}/"
+        flat: yes
+      with_items: "{{ log_files }}"
+
+    - name: Parse syslog and audit log files into CSV format
+      shell: |
+        awk 'BEGIN {OFS=","} {print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10}' {{ output_directory }}/{{ item | basename }} > {{ output_directory }}/{{ item | basename }}.csv
+      with_items: "{{ log_files }}"
+
+    - name: Combine all CSVs into one file
+      shell: |
+        echo "Timestamp,Host,Message" > {{ formatted_log_file }}
+        cat {{ output_directory }}/*.csv >> {{ formatted_log_file }}
+
+    - name: Display final CSV file path
+      debug:
+        msg: "The logs have been saved and formatted as CSV at {{ formatted_log_file }}"
