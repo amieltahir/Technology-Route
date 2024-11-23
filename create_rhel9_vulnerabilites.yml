@@ -1,0 +1,112 @@
+##### NOTES ###
+
+install rhel9 on aws free tier 
+sudo dnf install ansible-core
+ansible-galaxy collection install ansible.posix
+sudo systemctl daemon-reload
+sudo dnf install firewalld
+sudo systemctl daemon-reload
+
+---
+- name: Create vulnerabilities in Red Hat 9
+  hosts: localhost
+  become: true
+  tasks:
+
+    # Step 1: Install outdated or vulnerable packages
+    - name: Install an old version of a package (e.g., curl 7.29)
+      package:
+        name: curl
+        state: present
+        # You could specify an old version explicitly, e.g., "curl-7.29.0-59.el7_9.x86_64"
+        # Red Hat 9 may not have this exact version, so the idea is to use a vulnerable package version.
+        # This part may need modification to your package repositories to simulate outdated packages.
+
+    # Step 2: Disable SELinux (common vulnerability misconfiguration)
+    - name: Disable SELinux
+      command: setenforce 0
+      ignore_errors: yes
+
+    - name: Set SELinux to disabled permanently
+      lineinfile:
+        path: /etc/selinux/config
+        regexp: '^SELINUX='
+        line: 'SELINUX=disabled'
+
+    # Step 3: Disable or misconfigure firewall settings
+    - name: Disable firewalld
+      service:
+        name: firewalld
+        state: stopped
+        enabled: no
+
+    - name: Disable firewall rules (not recommended in production)
+      command: firewall-cmd --zone=public --remove-port=22/tcp --permanent
+      ignore_errors: yes
+
+    # Step 4: Create insecure file permissions
+    - name: Set world-writeable permissions on sensitive files (e.g., /etc/passwd)
+      file:
+        path: /etc/passwd
+        mode: '0777'
+
+    - name: Set world-writeable permissions on SSH config file
+      file:
+        path: /etc/ssh/sshd_config
+        mode: '0777'
+
+    # Step 5: Enable an insecure service (e.g., telnet)
+    - name: Install telnet package (insecure service)
+      package:
+        name: telnet
+        state: present
+
+    - name: Start telnet service
+      service:
+        name: telnet.socket
+        state: started
+        enabled: yes
+
+    # Step 6: Disable password complexity requirements (security misconfig)
+    - name: Disable password complexity requirements
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^PASS_MIN_LEN'
+        line: 'PASS_MIN_LEN   0'  # Allows any password length
+
+    - name: Disable password expiration (allows weak passwords to persist indefinitely)
+      lineinfile:
+        path: /etc/login.defs
+        regexp: '^PASS_MAX_DAYS'
+        line: 'PASS_MAX_DAYS   99999'  # Password never expires
+
+    # Step 7: Set a weak password for a test user
+    - name: Create a test user with a weak password
+      user:
+        name: testuser
+        password: "$6$rounds=656000$QN74GywtgzMFzvgw$P1vCpdX73Htwzq.x9yhrbgbUVB0Db62v6XBKBDJzGy0GB5vQGV7MOXZql.xVTH8SO.wbtAw.TdBHeQQ9sMGYbaY3.mkh1kFVH2KPl8ErRm8fNVLUN4eFTG1"  # (plaintext: password)
+
+
+    - name: Always reload firewalld
+      ansible.builtin.service:
+        name: firewalld
+        state: reloaded
+
+    - name: Open port 8080 on firewall
+      firewalld:
+        zone: public
+        port: 8080/tcp
+        state: enabled
+        permanent: yes
+        immediate: yes
+
+    # Step 9: Set weak permissions for SSH config (test vulnerability)
+    - name: Make SSH config file world-readable
+      file:
+        path: /etc/ssh/sshd_config
+        mode: '0644'
+
+    - name: install outdated package
+      package:
+        name: openssh-server
+        state: present
