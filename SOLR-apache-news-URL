@@ -1,1 +1,203 @@
+---
+- name: Setup Apache Solr and inject today's news headline
+  hosts: localhost
+  become: yes
+  vars:
+    solr_version: "8.11.4"
+    solr_port: 8983
+    solr_core: "news"
+    solr_install_dir: "/opt/solr"
+    news_api_url: "https://newsapi.org/v2/top-headlines"
+    news_api_key: "6b7908f064a84249a98ede88d33ba847"
+    country: "us"
+  tasks:
+    - name: Install required packages
+      ansible.builtin.yum:
+        name:
+          - java-11-openjdk
+          - wget
+          - unzip
+        state: present
 
+    - name: Download Apache Solr
+      ansible.builtin.get_url:
+        url: "https://downloads.apache.org/lucene/solr/{{ solr_version }}/solr-{{ solr_version }}.tgz"
+        dest: "/tmp/solr-{{ solr_version }}.tgz"
+
+    - name: Ensure Solr installation directory exists
+      ansible.builtin.file:
+        path: "{{ solr_install_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Remove existing /opt/solr directory or symlink
+      ansible.builtin.file:
+        path: /opt/solr
+        state: absent
+
+
+    - name: Create symlink for /opt/solr
+      ansible.builtin.file:
+        src: "/opt/solr-{{ solr_version }}"
+        dest: /opt/solr
+        state: link
+
+    - name: Extract Apache Solr
+      ansible.builtin.unarchive:
+        src: "/tmp/solr-{{ solr_version }}.tgz"
+        dest: "{{ solr_install_dir }}"
+        remote_src: yes
+
+    - name: Create solr user
+      ansible.builtin.user:
+        name: solr
+        shell: /bin/bash
+        home: /var/solr
+        state: present
+
+    - name: Create Solr service definition
+      copy:
+        dest: /etc/systemd/system/solr.service
+        content: |
+          [Unit]
+          Description=Apache Solr
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=solr
+          Group=solr
+          ExecStart=/opt/solr/bin/solr start -f
+          ExecStop=/opt/solr/bin/solr stop
+          Restart=on-failure
+          TimeoutSec=300
+          LimitNOFILE=65536
+          Environment="SOLR_INCLUDE=/etc/default/solr.in.sh"
+          Environment="SOLR_HOME=/var/solr"
+          Environment="SOLR_LOGS_DIR=/var/solr/logs"
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: Reload systemd
+
+
+
+    - name: Ensure correct permissions for Solr directories
+      ansible.builtin.file:
+        path: /opt/solr*
+        owner: solr
+        group: solr
+        recurse: yes
+
+    - name: Ensure Java is installed
+      ansible.builtin.package:
+        name: java-11-openjdk
+        state: present
+
+    - name: Ensure Solr configuration file exists
+      ansible.builtin.stat:
+        path: /etc/default/solr.in.sh
+      register: solr_config
+
+    - name: Ensure Solr directories have correct permissions
+      ansible.builtin.file:
+        path: /opt/solr
+        state: directory
+        owner: solr
+        group: solr
+        recurse: yes
+
+    - name: Validate Solr configuration file
+      ansible.builtin.stat:
+        path: /etc/default/solr.in.sh
+      register: solr_config
+
+    - name: Create default Solr configuration if missing
+      ansible.builtin.copy:
+        dest: /etc/default/solr.in.sh
+        content: |
+          SOLR_PORT=8983
+          SOLR_HOME=/var/solr
+          LOG4J_PROPS=/var/solr/log4j2.xml
+          SOLR_HEAP="512m"
+        owner: solr
+        group: solr
+        mode: '0644'
+      when: not solr_config.stat.exists
+
+    - name: Set permissions for Solr directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: solr
+        group: solr
+        recurse: yes
+      loop:
+        - /opt/solr
+        - /var/solr
+
+    - name: Reload systemd and restart Solr service
+      ansible.builtin.shell:
+        cmd: |
+          systemctl daemon-reload
+          systemctl restart solr.service
+
+    - name: Ensure Solr service is running
+      ansible.builtin.service:
+        name: solr
+        state: started
+        enabled: yes
+
+    - name: Add firewall rule for Solr
+      command: firewall-cmd --add-port=8983/tcp --permanent
+
+    - name: Reload firewalld
+      command: firewall-cmd --reload
+
+    - name: Create Solr core
+      ansible.builtin.command:
+        cmd: "/opt/solr/bin/solr create -c news -force"
+      become: yes
+      become_user: solr
+      environment:
+        SOLR_INCLUDE: /etc/default/solr.in.sh
+
+    - name: Fetch today's top news headline
+      ansible.builtin.uri:
+        url: "{{ news_api_url }}?country={{ country }}&apiKey={{ news_api_key }}"
+        return_content: yes
+      register: news_response
+
+    - name: Parse headline
+      ansible.builtin.set_fact:
+        headline: "{{ news_response.json.articles[0].title }}"
+
+    - name: Inject news headline into Solr
+      ansible.builtin.uri:
+        url: "http://localhost:{{ solr_port }}/solr/{{ solr_core }}/update?commit=true"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          add:
+            doc:
+              id: "{{ ansible_date_time.epoch }}"
+              headline: "{{ headline }}"
+
+    - name: Verify headline injection
+      ansible.builtin.uri:
+        url: "http://localhost:{{ solr_port }}/solr/{{ solr_core }}/select?q=*:*"
+        return_content: yes
+      register: solr_verification
+
+    - debug:
+        msg: "Headlines in Solr: {{ solr_verification.json.response.docs }}"
+
+
+  handlers:
+    - name: Reload systemd
+      command: systemctl daemon-reload
+
+    - name: Reload firewall
+      command: firewall-cmd --reload
