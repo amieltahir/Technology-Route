@@ -1,3 +1,16 @@
+### NOTES
+
+sudo dnf install go
+export GOPATH=~/go
+go mod init example.com/m/v2
+go get -u github.com/gorilla/mux ( https://github.com/gorilla/mux) ### Package gorilla/mux implements a request router and dispatcher for matching incoming requests to their respective handler.
+
+
+
+
+
+
+
 I need an ansible playbook to scan for red hat system vulnerabilities and insert them into go lang rest api and visualize them on a web application 
 ChatGPT said:
 ChatGPT
