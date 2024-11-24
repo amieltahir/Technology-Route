@@ -1,0 +1,73 @@
+---
+- name: Configure and perform immediate patching for RHEL 9 VM
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Ensure all necessary tools are installed
+      package:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - dnf
+        - cronie
+
+    - block:
+        - name: Perform immediate patching
+          command: dnf update -y
+          register: patching_result
+
+        - name: Log immediate patching results
+          copy:
+            dest: /var/log/patching.log
+            content: |
+              Immediate patching performed on {{ ansible_date_time.date }}:
+              {{ patching_result.stdout }}
+            owner: root
+            group: root
+            mode: '0644'
+
+      rescue:
+        - name: Log patching failure
+          copy:
+            dest: /var/log/patching.log
+            content: |
+              Immediate patching failed on {{ ansible_date_time.date }}:
+              {{ patching_result.stderr }}
+            owner: root
+            group: root
+            mode: '0644'
+
+    - name: Create a script for patching
+      copy:
+        dest: /usr/local/bin/patch_system.sh
+        content: |
+          #!/bin/bash
+          echo "Starting system patching: $(date)" >> /var/log/patching.log
+          dnf update -y >> /var/log/patching.log 2>&1
+          echo "System patching completed: $(date)" >> /var/log/patching.log
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Schedule patching via cron job
+      cron:
+        name: "Weekly system patching"
+        minute: 0
+        hour: 2
+        day: "*"
+        weekday: 0
+        job: "/usr/local/bin/patch_system.sh"
+
+    - name: Create a log file for patching
+      file:
+        path: /var/log/patching.log
+        state: touch
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Verify cron service is enabled and running
+      service:
+        name: crond
+        state: started
+        enabled: true
