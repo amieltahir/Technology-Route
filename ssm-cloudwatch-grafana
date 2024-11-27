@@ -1,0 +1,185 @@
+---
+- name: Setup SSM Agent, CloudWatch Logs, Metrics, and Grafana
+  hosts: web
+  become: yes
+  vars:
+    cloudwatch_agent_config: /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+
+  tasks:
+    # Task 1: Update the system packages
+    - name: Update the package cache on Debian
+      apt:
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Update the package cache on RedHat
+      yum:
+        name: '*'
+        state: latest
+      when: ansible_os_family == "RedHat"
+
+    - name: Update the package cache on Amazon Linux 2
+      yum:
+        name: '*'
+        state: latest
+      when: ansible_distribution == "Amazon"
+
+    # Task 2: Install the AWS SSM Agent
+    - name: Install AWS SSM Agent on Debian
+      apt:
+        name: amazon-ssm-agent
+        state: latest
+      when: ansible_os_family == "Debian"
+
+    - name: Install AWS SSM Agent on RedHat
+      yum:
+        name: amazon-ssm-agent
+        state: latest
+      when: ansible_os_family == "RedHat"
+
+    - name: Install AWS SSM Agent on Amazon Linux 2
+      yum:
+        name: amazon-ssm-agent
+        state: latest
+      when: ansible_distribution == "Amazon"
+
+    - name: Start and enable SSM Agent
+      service:
+        name: amazon-ssm-agent
+        state: started
+        enabled: true
+
+    # Task 3: Install CloudWatch Agent
+    - name: Download CloudWatch Agent for Debian
+      get_url:
+        url: https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+        dest: /tmp/amazon-cloudwatch-agent.deb
+      when: ansible_os_family == "Debian"
+
+    - name: Download CloudWatch Agent for RedHat
+      get_url:
+        url: https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
+        dest: /tmp/amazon-cloudwatch-agent.rpm
+      when: ansible_os_family == "RedHat"
+
+    - name: Download CloudWatch Agent for Amazon Linux 2
+      get_url:
+        url: https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
+        dest: /tmp/amazon-cloudwatch-agent.rpm
+      when: ansible_distribution == "Amazon"
+
+    - name: Install CloudWatch Agent on Debian
+      apt:
+        deb: /tmp/amazon-cloudwatch-agent.deb
+      when: ansible_os_family == "Debian"
+
+    - name: Install CloudWatch Agent on RedHat
+      yum:
+        name: /tmp/amazon-cloudwatch-agent.rpm
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Install CloudWatch Agent on Amazon Linux 2
+      yum:
+        name: /tmp/amazon-cloudwatch-agent.rpm
+        state: present
+      when: ansible_distribution == "Amazon"
+
+    # Task 4: Configure CloudWatch Agent
+    - name: Create CloudWatch Agent Configuration
+      copy:
+        dest: "{{ cloudwatch_agent_config }}"
+        content: |
+          {
+            "logs": {
+              "logs_collected": {
+                "files": {
+                  "collect_list": [
+                    {
+                      "file_path": "/var/log/syslog",
+                      "log_group_name": "SyslogGroup",
+                      "log_stream_name": "{instance_id}"
+                    }
+                  ]
+                }
+              }
+            },
+            "metrics": {
+              "metrics_collected": {
+                "cpu": {
+                  "measurement": ["usage_idle", "usage_system", "usage_user"],
+                  "resources": ["*"]
+                },
+                "disk": {
+                  "measurement": ["used_percent"],
+                  "resources": ["*"]
+                }
+              }
+            }
+          }
+
+    - name: Start CloudWatch Agent
+      command: /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+        -a start \
+        -m ec2 \
+        -c file:"{{ cloudwatch_agent_config }}"
+
+    # Task 5: Install Grafana
+    - name: Add Grafana APT key and repository
+      shell: |
+        wget -q -O - https://packages.grafana.com/gpg.key | apt-key add -
+        echo "deb https://packages.grafana.com/oss/deb stable main" > /etc/apt/sources.list.d/grafana.list
+        apt-get update
+      when: ansible_os_family == "Debian"
+
+    - name: Add Grafana YUM repository
+      copy:
+        dest: /etc/yum.repos.d/grafana.repo
+        content: |
+          [grafana]
+          name=grafana
+          baseurl=https://packages.grafana.com/oss/rpm
+          repo_gpgcheck=1
+          enabled=1
+          gpgcheck=1
+          gpgkey=https://packages.grafana.com/gpg.key
+          sslverify=1
+          sslcacert=/etc/pki/tls/certs/ca-bundle.crt
+      when: ansible_os_family == "RedHat" or ansible_distribution == "Amazon"
+
+    - name: Install Grafana on Debian
+      apt:
+        name: grafana
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Install Grafana on RedHat and Amazon Linux 2
+      yum:
+        name: grafana
+        state: present
+      when: ansible_os_family == "RedHat" or ansible_distribution == "Amazon"
+
+    - name: Start and enable Grafana
+      service:
+        name: grafana-server
+        state: started
+        enabled: true
+
+   # Check if cloud watch data source already exists
+
+
+
+    - name: Check if CloudWatch data source exists
+      uri:
+        url: http://localhost:3000/api/datasources
+      headers:
+        Authorization: Basic {{ 'admin:admin' | b64encode }}
+        Content-Type: application/json
+      method: GET
+      status_code: 200
+    register: datasources
+
+
+    - name: Notify to log in Grafana
+      debug:
+        msg: "Grafana setup complete. Access it at http://<instance_public_ip>:3000 with default credentials (admin/admin)."
