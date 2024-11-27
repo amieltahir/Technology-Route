@@ -1,0 +1,58 @@
+Step 1: Generate a New SSH Key Pair
+Run the following command on your local or Ansible control machine (replace /home/ec2-user/.ssh/id_rsa with your desired path):
+
+bash
+
+ssh-keygen -t rsa -b 4096 -f /home/ec2-user/.ssh/id_rsa -C "ansible-key" -N ""
+-t rsa -b 4096: Creates an RSA key with 4096 bits.
+-f: Specifies the file path for the key.
+-C: Adds a comment for identification (optional).
+-N "": Creates the key with no passphrase.
+This will create two files:
+
+/home/ec2-user/.ssh/id_rsa (private key)
+/home/ec2-user/.ssh/id_rsa.pub (public key)
+Step 2: Add the Public Key to the Target Instance
+Copy the public key to the ~/.ssh/authorized_keys file on the target instance:
+
+Use ssh-copy-id (simpler method):
+
+bash
+ssh-copy-id -i /home/ec2-user/.ssh/id_rsa.pub ec2-user@54.159.251.129
+If ssh-copy-id is unavailable, use the manual method below.
+
+Manual Method: Log in to the target instance (if you have another key or password access):
+
+bash
+
+ssh ec2-user@54.159.251.129
+Append the public key to ~/.ssh/authorized_keys:
+
+bash
+
+echo "PASTE_PUBLIC_KEY_HERE" >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+chmod 700 ~/.ssh
+Step 3: Update Your Ansible Inventory
+Modify your hosts file to use the new private key:
+
+
+[web]
+54.159.251.129 ansible_user=ec2-user ansible_ssh_private_key_file=/home/ec2-user/.ssh/id_rsa
+Step 4: Test the SSH Connection
+Ensure the new key works by manually testing the connection:
+
+bash
+ssh -i /home/ec2-user/.ssh/id_rsa ec2-user@54.159.251.129
+Step 5: Test with Ansible
+Run the Ansible ping module to confirm:
+
+bash
+
+ansible -i hosts -m ping web
+Optional: Remove Old Keys
+If you suspect conflicts with old SSH keys, clear the target's known hosts entry:
+
+bash
+
+ssh-keygen -R 54.159.251.129
