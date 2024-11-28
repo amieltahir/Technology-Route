@@ -1,0 +1,32 @@
+---
+- name: Perform OpenSCAP scan and generate HTML report
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Ensure required directories exist
+      ansible.builtin.file:
+        path: /var/log/oscap
+        state: directory
+        mode: '0755'
+
+    - name: Perform OpenSCAP scan
+      ansible.builtin.command:
+        cmd: >
+          oscap xccdf eval
+          --profile xccdf_org.ssgproject.content_profile_pci-dss
+          --results /var/log/oscap/scan-results.xml
+          --report /var/log/oscap/scan-report.html
+          /usr/share/xml/scap/ssg/content/ssg-rhel9-ds.xml
+      register: oscap_output
+      ignore_errors: true
+
+
+    - name: Display OpenSCAP scan output
+      debug:
+        msg: "{{ oscap_output.stdout }}"
+
+    - name: Fetch the generated HTML report
+      ansible.builtin.fetch:
+        src: /var/log/oscap/scan-report.html
+        dest: ./oscap-reports/
+        flat: yes
