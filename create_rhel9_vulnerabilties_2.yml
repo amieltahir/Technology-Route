@@ -1,0 +1,50 @@
+---
+- name: Configure RHEL 9 vulnerabilities (insecure system setup)
+  hosts: localhost
+  gather_facts: false
+  become: yes
+  tasks:
+    - name: Disable SELinux (insecure system setup)
+      ansible.builtin.command:
+        cmd: "setenforce 0"
+      ignore_errors: true  # Ignore errors if SELinux is already disabled
+      
+    - name: Ensure SELinux is disabled in config file
+      ansible.builtin.lineinfile:
+        path: /etc/selinux/config
+        regexp: '^SELINUX='
+        line: 'SELINUX=disabled'
+        state: present
+
+    - name: Install OpenSCAP RPM package
+      ansible.builtin.dnf:
+        name: openscap
+        state: present
+
+    - name: Disable firewall (insecure system setup)
+      ansible.builtin.service:
+        name: firewalld
+        state: stopped
+        enabled: no
+
+    - name: Install additional security tools (example)
+      ansible.builtin.dnf:
+        name:
+          - scap-security-guide
+          - openscap-scanner
+        state: present
+
+    - name: Install outdated packages (insecure system setup)
+      ansible.builtin.dnf:
+        name:
+          - vim-enhanced-8.0.1763-15.el9
+          - curl-7.76.1-21.el9
+          - openldap-2.6.2-3.el9
+          - python3-3.9.10-2.el9
+        state: present
+
+    - name: Update all other system packages
+      ansible.builtin.dnf:
+        name: '*'
+        state: latest
+        update_cache: yes
