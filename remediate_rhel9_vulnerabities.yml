@@ -1,0 +1,11 @@
+---
+- name: Remediate firewalld
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Verify firewalld Enabled - Enable Service firewalld
+      ansible.builtin.systemd:
+        name: firewalld
+        enabled: true
+        state: started
+        masked: false
