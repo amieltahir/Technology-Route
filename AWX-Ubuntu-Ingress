@@ -1,0 +1,185 @@
+## utility install 
+
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y docker.io docker-compose python3-pip git
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo apt  install curl jq net-tools mkcert
+
+## install mini-kube & kubectl 
+
+curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+sudo install minikube-linux-amd64 /usr/local/bin/minikube
+
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+ # setup docker user
+sudo usermod -aG docker $USER && newgrp docker
+
+# install kubernetes
+minikube start --cpus=4 --memory=10g --disk-size=70g --driver=docker
+
+# minikube v1.34.0 on Ubuntu 22.04 (vbox/amd64)
+
+✨  Using the docker driver based on user configuration
+📌  Using Docker driver with root privileges
+👍  Starting "minikube" primary control-plane node in "minikube" cluster
+🚜  Pulling base image v0.0.45 ...
+💾  Downloading Kubernetes v1.31.0 preload ...
+    > preloaded-images-k8s-v18-v1...:  326.69 MiB / 326.69 MiB  100.00% 5.05 Mi
+    > gcr.io/k8s-minikube/kicbase...:  487.89 MiB / 487.90 MiB  100.00% 5.22 Mi
+🔥  Creating docker container (CPUs=4, Memory=10240MB) ...
+🐳  Preparing Kubernetes v1.31.0 on Docker 27.2.0 ...
+    ▪ Generating certificates and keys ...
+    ▪ Booting up control plane ...
+    ▪ Configuring RBAC rules ...
+🔗  Configuring bridge CNI (Container Networking Interface) ...
+🔎  Verifying Kubernetes components...
+    ▪ Using image gcr.io/k8s-minikube/storage-provisioner:v5
+🌟  Enabled addons: storage-provisioner, default-storageclass
+🏄  Done! kubectl is now configured to use "minikube" cluster and "default" namespace by default
+
+# enable ingress
+
+minikube addons enable ingress
+
+💡  ingress is an addon maintained by Kubernetes. For any concerns contact minikube on GitHub.
+You can view the list of minikube maintainers at: https://github.com/kubernetes/minikube/blob/master/OWNERS
+    ▪ Using image registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.4.3
+    ▪ Using image registry.k8s.io/ingress-nginx/controller:v1.11.2
+    ▪ Using image registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.4.3
+🔎  Verifying ingress addon...
+🌟  The 'ingress' addon is enabled
+
+## verify 
+
+## kubectl get pods -n ingress-nginx | grep ingress
+ingress-nginx-admission-create-r4stw       0/1     Completed   0          2m36s
+ingress-nginx-admission-patch-x8v6v        0/1     Completed   0          2m36s
+ingress-nginx-controller-bc57996ff-gfjdr   1/1     Running     0          2m36s
+
+## kubectl get pods -A 
+
+NAMESPACE       NAME                                       READY   STATUS      RESTARTS   AGE
+ingress-nginx   ingress-nginx-admission-create-r4stw       0/1     Completed   0          89s
+ingress-nginx   ingress-nginx-admission-patch-x8v6v        0/1     Completed   0          89s
+ingress-nginx   ingress-nginx-controller-bc57996ff-gfjdr   1/1     Running     0          89s
+kube-system     coredns-6f6b679f8f-9fmbd                   1/1     Running     0          5m32s
+kube-system     etcd-minikube                              1/1     Running     0          5m37s
+kube-system     kube-apiserver-minikube                    1/1     Running     0          5m39s
+kube-system     kube-controller-manager-minikube           1/1     Running     0          5m37s
+kube-system     kube-proxy-f9qlg                           1/1     Running     0          5m33s
+kube-system     kube-scheduler-minikube                    1/1     Running     0          5m37s
+kube-system     storage-provisioner                        1/1     Running     0          5m35s
+
+## setup local DNS 
+minikube ip -->  192.168.49.2 -> add in /etc/hosts  as technologyroute.io 
+
+## deploy awx operator 
+
+## create dir
+mkdir awx
+
+## create kustomization file
+
+cat <<EOF > awx/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  # Reference the latest stable release of AWX Operator
+  - github.com/ansible/awx-operator/config/default?ref=2.5.3
+
+# Set the image tag to match the git version from above
+images:
+  - name: quay.io/ansible/awx-operator
+    newTag: 2.5.3
+
+# Specify the namespace for AWX
+namespace: awx
+EOF
+
+# apply 
+kubectl apply -k awx/
+
+# set current context to awx namespace 
+kubectl config set-context --current --namespace=awx
+
+# monitor deployment of awx operator 
+kubectl get pods -w 
+
+# deploy awx instance
+
+cat <<EOF > awx/awx.yaml
+apiVersion: awx.ansible.com/v1beta1
+kind: AWX
+metadata:
+  name: awx
+spec:
+  service_type: nodeport
+EOF
+
+
+# update kustomization file to include the awx resource
+
+cat <<EOF > awx/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - github.com/ansible/awx-operator/config/default?ref=2.5.3
+  - awx.yaml
+
+images:
+  - name: quay.io/ansible/awx-operator
+    newTag: 2.5.3
+
+namespace: awx
+EOF
+
+## re-apply the file 
+kubectl apply -k awx/
+
+## Monitor the AWX Operator logs to ensure successful deployment:
+
+kubectl logs -f deployments/awx-operator-controller-manager -c awx-manager
+
+-->  
+PLAY RECAP *********************************************************************
+localhost                  : ok=81   changed=0    unreachable=0    failed=0    skipped=81   rescued=0    ignored=1
+
+
+
+## access awx  
+
+minikube service awx-service -n awx
+
+## if running remotely setup port forwarding
+
+kubectl port-forward svc/awx-service --address 0.0.0.0 8080:80
+
+http://<minikube-external-ip>:8080
+
+## get awx password 
+
+kubectl get secrets -n awx
+kubectl get secret awx-admin-password -n awx -o jsonpath="{.data.password}" | base64 --decode
+
+----
+mkcert technologyroute.io
+
+kubectl delete secret technologyroute-tls -n awx
+kubectl create secret tls technologyroute-tls --cert=technologyroute.io.pem --key=technologyroute.io-key.pem -n awx
+
+
+
+## 
+
+ curl -X POST http://$AWX_URL/api/v2/inventories/ \
+  -H "Authorization: Bearer $AWX_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+      "name": "RHEL",
+      "organization": 1
+    }'
+
+
