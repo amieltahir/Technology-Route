@@ -183,3 +183,103 @@ kubectl create secret tls technologyroute-tls --cert=technologyroute.io.pem --ke
     }'
 
 
+-------
+
+-------
+
+## setup ingress
+#add jetstack helm repo 
+#install helm 
+
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+
+## install cert manager into our cluster
+
+helm install cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --create-namespace \
+  --set installCRDs=true
+
+##  verify cert manager is installed
+
+kubectl get pods -n cert-manager
+
+## Use a self-signed certificate
+
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+  namespace: awx
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: technologyroute-cert
+  namespace: awx
+spec:
+  dnsNames:
+  - technologyroute.io
+  secretName: technologyroute-tls
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+
+## apply it 
+
+kubectl apply -f selfsigned-cert.yaml
+
+## verify
+
+kubectl get certificate -n awx
+kubectl get secret technologyroute-tls -n awx
+
+## create ingress in port 443 
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: awx-ingress
+  namespace: awx
+spec:
+  tls:
+  - hosts:
+    - technologyroute.io
+    secretName: technologyroute-tls
+  rules:
+  - host: technologyroute.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: awx-service
+            port:
+              number: 443
+
+## apply it 
+
+kubectl apply -f awx-ingress.yaml
+
+## check 
+
+ kubectl get svc -n ingress-nginx
+
+NAME                                 TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)                      AGE
+ingress-nginx-controller             NodePort    10.101.45.83   <none>        80:30167/TCP,443:31671/TCP   109m
+ingress-nginx-controller-admission   ClusterIP   10.98.237.80   <none>        443/TCP                      109m
+
+## port forward 
+
+kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 8443:443
+Forwarding from 127.0.0.1:8443 -> 443
+Forwarding from [::1]:8443 -> 443
+
+
+
